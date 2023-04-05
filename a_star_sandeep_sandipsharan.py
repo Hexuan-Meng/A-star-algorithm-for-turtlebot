@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import numpy as np
 import time
 import math
@@ -5,6 +7,11 @@ import pygame
 import vidmaker
 from sortedcollections import OrderedSet
 import heapdict
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist
+
+
 
 '''
 Github repository - https://github.com/sandipsharan/A_star_algorithm
@@ -16,57 +23,6 @@ Video Link - https://drive.google.com/file/d/1vIZtnI60usW49peaX9DfhXH0A0Eim3Nj/v
 
 start_time = time.time()
 
-def clearance(d, a):
-    Hm1 = Hm3 = (-15/26)
-    Hm2 = Hm4 = (15/26)
-    Hc1, Hc2, Hc3, Hc4, Hc5, Hc6 = (
-        4850/13), (350/13), (2900/13), -(1600/13), 235, 365
-    Tm1, Tm2 = -2, 2
-    Tc1, Tc2, Tc3 = 1145, -895, 460
-    phc1 = parallel_line_finder(Hm1, Hc1, d, 'Greater')
-    phc2 = parallel_line_finder(Hm2, Hc2, d, 'Greater')
-    phc3 = parallel_line_finder(Hm3, Hc3, d, 'Lesser')
-    phc4 = parallel_line_finder(Hm4, Hc4, d, 'Lesser')
-    ptc1 = parallel_line_finder(Tm1, Tc1, d, 'Greater')
-    ptc2 = parallel_line_finder(Tm2, Tc2, d, 'Lesser')
-    if a == 1:
-        return phc1, phc2, phc3, phc4, ptc1, ptc2
-    hx1 = line_intersection(Hm1, Hm2, phc1, phc2, 1, 1)
-    hx2 = line_intersection(Hm1, -1, phc1, Hc6+d, 1, 0)
-    hx3 = line_intersection(Hm4, -1, phc4, Hc6+d, 1, 0)
-    hx4 = line_intersection(Hm3, Hm4, phc3, phc4, 1, 1)
-    hx5 = line_intersection(Hm3, -1, phc3, Hc5-d, 1, 0)
-    hx6 = line_intersection(Hm2, -1, phc2, Hc5-d, 1, 0)
-    Tx1 = line_intersection(Tm1, Tm2, ptc1, ptc2, 1, 1)
-    Tx2 = line_intersection(Tm1, 0, ptc1, 225+d, 1, 1)
-    Tx3 = [Tc3 - d, 225+d]
-    Tx4 = [Tc3 - d, 25-d]
-    Tx5 = line_intersection(Tm2, 0, ptc2, 25-d, 1, 1)
-    return hx1, hx2, hx3, hx4, hx5, hx6, Tx1, Tx2, Tx3, Tx4, Tx5
-
-
-def line_intersection(m1, m2, c1, c2, a, b):
-    A = np.array([[-m1, a], [-m2, b]])
-    B = np.array([c1, c2])
-    X = np.linalg.solve(A, B)
-    return X
-
-
-def parallel_line_finder(m, c, d, str):
-    c21 = c + d*np.sqrt(m**2 + 1)
-    c22 = c - d*np.sqrt(m**2 + 1)
-    if str == 'Greater':
-        if c21 > c:
-            return c21
-        else:
-            return c22
-    else:
-        if c21 < c:
-            return c21
-        else:
-            return c22
-
-
 def coords_pygame(coords, height):
     return (coords[0], height - coords[1])
 
@@ -75,94 +31,64 @@ def rect_pygame(coords, height, obj_height):
     return (coords[0], height - coords[1] - obj_height)
 
 
-def create_map(d, hx1, hx2, hx3, hx4, hx5, hx6, Tx1, Tx2, Tx3, Tx4, Tx5, explored, optimal_path, path):
+def create_map(d, explored, optimal_path, path):
     pygame.init()
-    size = [600, 250]
+    size = [600, 200]
     screen = pygame.display.set_mode(size)
     pygame.display.set_caption("Visualization")
-    video = vidmaker.Video("anime.mp4", late_export=True)
+    # video = vidmaker.Video("anime.mp4", late_export=True)
     clock = pygame.time.Clock()
     running = True
-    x1, y1 = rect_pygame([100-d, 0], 250, 100+d)
-    x2, y2 = rect_pygame([100, 0], 250, 100)
-    x3, y3 = rect_pygame([100-d, 150-d], 250, 100+d)
-    x4, y4 = rect_pygame([100, 150], 250, 100)
+    x1, y1 = rect_pygame([150-d, 75-d], 200, 125+d)
+    x3, y3 = rect_pygame([250-d, 0], 200, 125+d)
 
-    ta2, tb2 = coords_pygame(Tx1, 250)
-    tc2, td2 = coords_pygame(Tx2, 250)
-    te2, tf2 = coords_pygame(Tx3, 250)
-    tg2, th2 = coords_pygame(Tx4, 250)
-    ti2, tj2 = coords_pygame(Tx5, 250)
-
-    ta1, tb1 = coords_pygame([460, 25], 250)
-    tc1, td1 = coords_pygame([460, 225], 250)
-    te1, tf1 = coords_pygame([510, 125], 250)
-
-    ha, hb = coords_pygame(hx1, 250)
-    hc, hd = coords_pygame(hx2, 250)
-    he, hf = coords_pygame(hx3, 250)
-    hg, hh = coords_pygame(hx4, 250)
-    hi, hj = coords_pygame(hx5, 250)
-    hk, hl = coords_pygame(hx6, 250)
+    x2, y2 = rect_pygame([150, 75], 200, 125)
+    x4, y4 = rect_pygame([250, 0], 200, 125)
 
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-        pygame.draw.rect(screen, "teal", [x1, y1, 50+2*d, 100+d], 0)
-        pygame.draw.rect(screen, "skyblue", [x2, y2, 50, 100], 0)
-        pygame.draw.rect(screen, "teal", [x3, y3, 50+2*d, 100+d], 0)
-        pygame.draw.rect(screen, "skyblue", [x4, y4, 50, 100], 0)
-        pygame.draw.rect(screen, "teal", [0, 0, d, 250], 0)
+        pygame.draw.rect(screen, "teal", [x1, y1, 15+(2*d), 125+d], 0)
+        pygame.draw.rect(screen, "skyblue", [x2, y2, 15, 125], 0)
+        pygame.draw.rect(screen, "teal", [x3, y3, 15+(2*d), 125+d], 0)
+        pygame.draw.rect(screen, "skyblue", [x4, y4, 15, 125], 0)
+        pygame.draw.rect(screen, "teal", [0, 0, d, 200], 0)
         pygame.draw.rect(screen, "teal", [0, 0, 600, d], 0)
-        pygame.draw.rect(screen, "teal", [0, 250-d, 600, d], 0)
-        pygame.draw.rect(screen, "teal", [600-d, 0, d, 250], 0)
-        pygame.draw.polygon(screen, "teal", ([ta2, tb2], [tc2, td2], 
-                                             [te2, tf2], [tg2, th2], [ti2, tj2]), 0)
-        pygame.draw.polygon(
-            screen, "skyblue", [[ta1, tb1], [tc1, td1], [te1, tf1]], 0)
-        pygame.draw.polygon(screen, "teal", [[ha, hb], [hc, hd], 
-                                             [he, hf], [hg, hh], [hi, hj], [hk, hl]], 0)
-        pygame.draw.polygon(screen, "skyblue", ((
-            235, 87.5), (300, 50), (365, 87.5), (365, 162.5), (300, 200), (235, 162.5)))
-        pygame.draw.circle(screen, (0, 255, 255),
-                           coords_pygame(initial_state, 250), 2)
-        pygame.draw.circle(screen, (0, 255, 255),
-                           coords_pygame(node_state_g, 250), 1.5)
+        pygame.draw.rect(screen, "teal", [0, 200-d, 600, d], 0)
+        pygame.draw.rect(screen, "teal", [600-d, 0, d, 200], 0)
+        pygame.draw.circle(screen, "teal", coords_pygame((400, 110), 200), 55)
+        pygame.draw.circle(screen, "skyblue", coords_pygame((400, 110), 200), 50)
+
         for l in range(len(explored)):
             pygame.draw.lines(screen, "white", False, path[explored[l]][1], width=1)
-            video.update(pygame.surfarray.pixels3d(
-                screen).swapaxes(0, 1), inverted=False)
+            print(path[explored[l]][1])
+            # video.update(pygame.surfarray.pixels3d(
+            #     screen).swapaxes(0, 1), inverted=False)
             pygame.display.flip()
             clock.tick(3500)
-        for i in optimal_path:
-            pygame.draw.circle(screen, "black", coords_pygame(i, 250), r)
-            video.update(pygame.surfarray.pixels3d(
-                screen).swapaxes(0, 1), inverted=False)
-            pygame.display.flip()
-            clock.tick(1)
+        # for i in optimal_path:
+        #     pygame.draw.circle(screen, "black", coords_pygame(i, 250), r)
+        #     video.update(pygame.surfarray.pixels3d(
+        #         screen).swapaxes(0, 1), inverted=False)
+        #     pygame.display.flip()
+        #     clock.tick(1)
         running = False
     pygame.display.flip()
     pygame.time.wait(3000)
     pygame.quit()
-    video.export(verbose=True)
+    # video.export(verbose=True)
 
 
-def check_obstacles(d, phc1, phc2, phc3, phc4, ptc1, ptc2):
+def check_obstacles(d):
     obstacles = OrderedSet()
-    for x in np.arange(0, 601):
-        for y in np.arange(0, 251):
-            if (x >= (235 - d) and x <= (365+d) and (y-((15/26)*x) - phc2) <= 0
-                and (y+((15/26)*x) - phc1) <= 0 and (y+((15/26)*x) - phc3) >= 0
-                    and (y-((15/26)*x) - phc4) >= 0):
+    for x in np.arange(0, 6.1, 0.1):
+        for y in np.arange(0, 2.1, 0.1):
+            if (x >= (1.5 - d) and y >= (0.75-d) and x <= (1.65 + d) and y <= 2):
                 obstacles.add((x, y))
-            if (x >= (100-d) and y >= 0 and x <= (150+d) and y <= (100+d)):
+            if (x >= (2.5 - d) and y >= 0 and x <= (2.65 + d) and y <= (1.25 + d)):
                 obstacles.add((x, y))
-            if (x >= (100-d) and y >= (150-d) and x <= (150+d) and y <= 250):
-                obstacles.add((x, y))
-            if (x >= (600-d) or y >= (250-d) or x <= d or y <= d):
-                obstacles.add((x, y))
-            if (x >= (460-d) and (y+(2*x) - ptc1) <= 0 and y <= (225+d) and y >= (25-d) and (y-2*x - ptc2) >= 0):
+            if ((x-4)**2 + (y-1.1)**2 - 0.25) <= 0:
                 obstacles.add((x, y))
     return obstacles
 
@@ -206,7 +132,7 @@ def input_cdr(str):
             return int(A[0])
 
 
-def check_conditions(X_n, Y_n, X_i, Y_i, T_i, Thetan, cc, ls):
+def check_conditions(X_n, Y_n, X_i, Y_i, T_i, Thetan, cc, ls, vel):
     cost2_go = np.sqrt((node_state_g[0]-X_n)**2 +
                        (node_state_g[1]-Y_n)**2)
     final_cost = cc + cost2_go
@@ -219,13 +145,13 @@ def check_conditions(X_n, Y_n, X_i, Y_i, T_i, Thetan, cc, ls):
         if current_pos in queue_nodes:
             if queue_nodes[current_pos][0] > final_cost:
                 queue_nodes[current_pos] = final_cost, cost2_go, cc
-                path_dict[current_pos] = (X_i, Y_i, T_i), ls
+                path_dict[current_pos] = (X_i, Y_i, T_i), ls, vel
                 visited_nodes.add(current_pos)
                 return
             else:
                 return
         queue_nodes[current_pos] = final_cost, cost2_go, cc
-        path_dict[current_pos] = (X_i, Y_i, T_i), ls
+        path_dict[current_pos] = (X_i, Y_i, T_i), ls, vel
         visited_nodes.add(current_pos)
     return
 
@@ -244,31 +170,76 @@ def Actions(ul, ur, pos, c2c):
         Yn += 0.5*R * (ul + ur) * np.sin(Thetan) * dt
         Thetan += (R / L)*(ul-ur)*dt
         ls.add(coords_pygame((Xn, Yn),250))
+    velocity = ((Xn/dt), (Yn/dt), (Thetan/dt))
     cc = c2c + math.sqrt((0.5*R*(ul + ur)*math.cos(Thetan)*t)
                          ** 2) + (0.5*R * (ul + ur) * math.sin(Thetan)*t)**2
     Thetan = np.rad2deg(Thetan)
     if 0 <= Xn <= 600 and 0 <= Yn <= 600:
-        check_conditions(Xn, Yn, pos[0], pos[1], pos[2], Thetan, cc, ls)
-    return
+        check_conditions(Xn, Yn, pos[0], pos[1], pos[2], Thetan, cc, ls, velocity)
+    return 
 
 
 def back_tracking(path, pre_queue):
     best_path = OrderedSet()
-    best_path.add(pre_queue[0])
+    path_vel = OrderedSet()
+    best_path.add(pre_queue[0])    
     parent_node = path[pre_queue[0]][0]
+    vel_parent = path.get(pre_queue[0])[2]
+    path_vel.add(vel_parent)
     best_path.add(parent_node)
     while parent_node != initial_state:
+        vel_parent = path.get(parent_node)
+        path_vel.add(vel_parent[2])
         parent_node = path[parent_node][0]
         best_path.add(parent_node)
         if pre_queue[0] == initial_state:
+            vel_parent = path.get(parent_node)
+            path_vel.add(vel_parent[2])
             parent_node = path[pre_queue[0]][0]
             best_path.add(parent_node)
             break
     final_path = sorted(best_path, reverse=False)
+    path_vel = sorted(path_vel, reverse=False)
     print("Path Taken: ")
     for i in final_path:
         print(i)
-    return final_path
+    return final_path, path_vel
+
+# class follow_path(Node):
+
+#     def __init__(self):
+#         super().__init__("Path_planning")
+#         self.cmd_vel_pub_ = self.create_publisher(Twist, "/turtle1/cmd_vel", 10)
+#         self.timer_ = self.create_timer(0.5, self.send_velocity_command)
+#         self.get_logger().info("Following the path planned")
+    
+#     def send_velocity_command(self):
+#         msg = Twist()
+#         msg.linear.x = 2.0
+#         # msg.linear.y = 2.0
+#         msg.angular.z = 1.0
+#         self.cmd_vel_pub_.publish(msg)
+
+# def ros_move(args=None):
+#     rclpy.init(args=args)
+#     node = follow_path()
+#     rclpy.spin(node)
+#     rclpy.shutdown()
+
+# def ros_move(velo):
+#     cmd_vel_pub_ = Node.create_publisher(Twist, "/turtle1/cmd_vel", 10)
+#     Node.get_logger().info("Path Planning")
+#     msg = Twist()
+#     i = 0
+#     while not rclpy.is_shutdown():
+#         msg.linear.x = (velo[i][0])**2
+#         print(msg.linear.x)
+#         msg.linear.y = (velo[i][1])**2
+#         msg.linear.z = (velo[i][2])**2
+#         cmd_vel_pub_.publish(msg)
+#         time.sleep(0.1)
+#     rclpy.shutdown()
+#     return    
 
 
 def A_star():
@@ -284,13 +255,15 @@ def A_star():
                     Actions(i[0], i[1], position, cc)
             else:
                 print("Goal reached")
-                back_track = back_tracking(path_dict, queue_pop)
+                back_track, velocity_path = back_tracking(path_dict, queue_pop)
                 print("Goal reached")
+                print(len(back_track))                
+                print(len(velocity_path))
                 end_time = time.time()
                 path_time = end_time - start_time
                 print('Time to calculate path:', path_time, 'seconds')
-                create_map(d, hx1, hx2, hx3, hx4, hx5, hx6,
-                           Tx1, Tx2, Tx3, Tx4, Tx5, visited_nodes, back_track, path_dict)
+                create_map(d, visited_nodes, back_track, path_dict)
+                # ros_move()
                 return
     print("Path cannot be acheived")
 
@@ -298,15 +271,14 @@ def A_star():
 RPM1, RPM2 = 0.5, 0.5
 action_set = [0, RPM1], [RPM1, 0], [RPM1, RPM1], [0, RPM2], [
     RPM2, 0], [RPM2, RPM2], [RPM1, RPM2], [RPM2, RPM1]
+
 # r = input_cdr('radius')
 r = 0.105
 R = 0.33
 L = 0.16
 # d = input_cdr('clearance')
 d = 5
-phc1, phc2, phc3, phc4, ptc1, ptc2 = clearance((d+r), 1)
-obstacle_space = check_obstacles((d+r), phc1, phc2, phc3, phc4, ptc1, ptc2)
-hx1, hx2, hx3, hx4, hx5, hx6, Tx1, Tx2, Tx3, Tx4, Tx5 = clearance(d, 0)
+obstacle_space = check_obstacles(d+r)
 # initial_state = input_start('Start'), input_cdr('start point')
 # initial_state = (initial_state[0][0], initial_state[0][1], initial_state[1])
 initial_state = (11, 11, 30)
