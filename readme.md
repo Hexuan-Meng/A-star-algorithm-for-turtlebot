@@ -52,8 +52,7 @@ https://docs.ros.org/en/galactic/Installation/Ubuntu-Install-Debians.html
 
 ## Git Repo Link 
 
-https://github.com/sandipsharan/A_star_algorithm
-
+https://github.com/sandipsharan/A-star-algorithm-for-turtlebot.git
 
 ## To Run the program
 
