@@ -7,10 +7,6 @@ import pygame
 import vidmaker
 from sortedcollections import OrderedSet
 import heapdict
-import rclpy
-from rclpy.node import Node
-from geometry_msgs.msg import Twist
-from rclpy.exceptions import ROSInterruptException
 
 
 '''
@@ -18,7 +14,8 @@ Github repository - https://github.com/sandipsharan/A_star_algorithm
 '''
 
 '''
-Video Link - https://drive.google.com/file/d/1vIZtnI60usW49peaX9DfhXH0A0Eim3Nj/view?usp=sharing
+Visualization Video link - https://drive.google.com/file/d/1J7fFrUmw66ZZ5l-3xftQIBs8zg-AzyZ3/view?usp=share_link
+Gazebo Video Link - https://drive.google.com/file/d/1zMZkRd9BUZkixb4Scdb6FKqUckAuu_gh/view?usp=share_link
 '''
 
 start_time = time.time()
@@ -46,7 +43,8 @@ class A_star:
         pygame.init()
         size = [600, 200]
         screen = pygame.display.set_mode(size)
-        pygame.display.set_caption("Visualization")
+        pygame.display.set_caption("Weighted A-star")
+        video = vidmaker.Video("anime.mp4", late_export=True)
         clock = pygame.time.Clock()
         running = True
         x1, y1 = self.rect_pygame([150-d, 75-d], 200, 125+d)
@@ -73,17 +71,23 @@ class A_star:
             for l in range(len(explored)):
                 pygame.draw.lines(screen, "white", False,
                                   path[explored[l]][1], width=1)
+                video.update(pygame.surfarray.pixels3d(
+                    screen).swapaxes(0, 1), inverted=False)
                 pygame.display.flip()
                 clock.tick(500)
-            for i in optimal_path:
-                pygame.draw.circle(
-                    screen, "red", self.coords_cm_pygame(i, 200), 2)
-                pygame.display.flip()
-                clock.tick(1)
+            for i in range(len(optimal_path)):
+                if optimal_path[i] != initial_state:
+                    pygame.draw.lines(screen, "red", False,
+                                      path[optimal_path[i]][1], width=3)
+                    video.update(pygame.surfarray.pixels3d(
+                        screen).swapaxes(0, 1), inverted=False)
+                    pygame.display.flip()
+                    clock.tick(20)
             running = False
         pygame.display.flip()
         pygame.time.wait(3000)
         pygame.quit()
+        video.export(verbose=True)
 
     def check_obstacles(self, d):
         obstacles = OrderedSet()
@@ -102,8 +106,8 @@ class A_star:
     def input_start(self, str):
         while True:
             print("Enter", str, "node (Sample: 10, 10 ): ")
-            A = [int(i) for i in input().split(', ')]
-            A_1 = (A[0], A[1])
+            A = [float(i) for i in input().split(', ')]
+            A_1 = (A[0]+0.5, A[1]+1)
             if A_1 in obstacle_space:
                 print(
                     "The entered input lies on the obstacles (or) not valid, please try again")
@@ -122,17 +126,21 @@ class A_star:
                 A = float(input())
                 return A
             elif str == 'clearance':
-                print("Enter", str, " in cm (Sample: 5): ")
+                print("Enter", str, " in mm (Sample: 100): ")
                 A = float(input())
-                return A
+                return A/1000
 
     def check_conditions(self, X_n, Y_n, X_i, Y_i, T_i, Thetan, cc, ls, vel):
         cost2_go = self.euclidean_distance(
             node_state_g[0], X_n, node_state_g[1], Y_n)
-        final_cost = (cc + cost2_go)
-        if Thetan > 360 or Thetan < 0:
+        final_cost = (cc + cost2_go*1.75)
+        if Thetan > 360:
             Thetan = Thetan % 360
-        current_pos = (X_n, Y_n, np.round(Thetan))
+        elif -360 < Thetan < 0:
+            Thetan += 360
+        elif Thetan <= -360:
+            Thetan = Thetan % 360 + 360
+        current_pos = (X_n, Y_n, np.round(Thetan, 2))
         if (current_pos[0], current_pos[1]) not in obstacle_space:
             if current_pos in queue_nodes:
                 if queue_nodes[current_pos][0] > final_cost:
@@ -149,7 +157,7 @@ class A_star:
 
     def Actions(self, ul, ur, pos, c2c):
         t = 0
-        dt = 0.1
+        dt = 0.2
         Xn = pos[0]
         Yn = pos[1]
         Thetan = np.deg2rad(pos[2])
@@ -157,22 +165,20 @@ class A_star:
         ls.add(self.coords_cm_pygame((Xn, Yn), 200))
         cc = 0
         while t < 1:
-            t = t + dt
             xi = Xn
             yi = Yn
             Xn += 0.5*R*(ul + ur)*np.cos(Thetan)*dt
             Yn += 0.5*R*(ul + ur)*np.sin(Thetan)*dt
             Thetan += (R/L)*(ur-ul)*dt
-            # if (np.round(Xn, 2), np.round(Yn, 2)) in obstacle_space:
-            #     return
+            t = t + dt
             cc += self.euclidean_distance(xi, Xn, yi, Yn)
             ls.add(self.coords_cm_pygame((Xn, Yn), 200))
         cc += c2c
+        velocity = ((0.5*R*(ul + ur)*np.cos(Thetan)),
+                    (0.5*R*(ul + ur)*np.sin(Thetan)), ((R/L)*(ur-ul)))
         Xn = np.round(Xn, 2)
         Yn = np.round(Yn, 2)
         Thetan = np.round(Thetan, 2)
-        velocity = ((0.5*R*(ul + ur)*np.cos(Thetan)),
-                    (0.5*R*(ul + ur)*np.sin(Thetan)), ((R/L)*(ur-ul)))
         Thetan = np.rad2deg(Thetan)
         if 0 <= Xn <= 6 and 0 <= Yn <= 2:
             self.check_conditions(Xn, Yn, pos[0], pos[1],
@@ -203,19 +209,20 @@ class A_star:
         RPM1 = self.input_cdr('RPM1')
         RPM2 = self.input_cdr('RPM2')
         global action_set, initial_state, node_state_g, closed_list, queue_nodes, visited_nodes, path_dict, obstacle_space, R, L
-        action_set = [RPM2, RPM2], [RPM1, RPM2], [RPM2, RPM1], [
-            RPM1, RPM1], [0, RPM1], [RPM1, 0], [0, RPM2], [RPM2, 0]
+        action_set = [0, RPM1], [RPM1, 0], [RPM1, RPM1], [0, RPM2], [
+            RPM2, 0], [RPM2, RPM2], [RPM1, RPM2], [RPM2, RPM1]
         r = 0.105
         R = 0.033
         L = 0.16
         d = self.input_cdr('clearance')
-        obstacle_space = self.check_obstacles((d/100)+r)
-        # initial_state = input_start('Start'), input_cdr('start point')
-        # initial_state = (initial_state[0][0], initial_state[0][1], initial_state[1])
-        initial_state = (0.5, 1, 0)
-        # node_state_g = input_start('Goal'), input_cdr('goal point')
-        # node_state_g = (node_state_g[0][0], node_state_g[0][1], node_state_g[1])
-        node_state_g = (5.5, 1, 0)
+        obstacle_space = self.check_obstacles((d+r))
+        initial_state = self.input_start(
+            'Start'), self.input_cdr('start point')
+        initial_state = (initial_state[0][0],
+                         initial_state[0][1], initial_state[1])
+        node_state_g = self.input_start('Goal'), self.input_cdr('goal point')
+        node_state_g = (node_state_g[0][0],
+                        node_state_g[0][1], node_state_g[1])
         cost = 0
         closed_list = OrderedSet()
         cg = np.sqrt(
@@ -242,61 +249,15 @@ class A_star:
                     end_time = time.time()
                     path_time = end_time - start_time
                     print('Time to calculate path:', path_time, 'seconds')
-                    # self.create_map(d, visited_nodes, back_track, path_dict)
-                    return velocity_path
+                    self.create_map(d, visited_nodes, back_track, path_dict)
+                    return
         print("Path cannot be acheived")
-        exit()
-
-
-class ROS_move(Node):
-
-    # Function for initiating publisher, timer and other variables
-    def __init__(self, velo):
-        super().__init__('ROS_move')
-        self.vel_publisher_ = self.create_publisher(Twist, "/cmd_vel", 10)
-        timer_callback = 1
-        self.timer = self.create_timer(timer_callback, self.publish_velocities)
-        self.i = 0
-        self.velo = velo
-
-    # Function for publishing velocity commands
-    def publish_velocities(self):
-        vel_msg = Twist()
-        if self.i < len(self.velo):
-            start = time.time()
-            while (time.time() - start) < 1:
-                vel_msg.linear.x = np.sqrt(
-                    (self.velo[self.i][0])**2 + (self.velo[self.i][1])**2)
-                vel_msg.angular.z = (self.velo[self.i][2])
-                self.vel_publisher_.publish(vel_msg)
-                print('Moving turtlebot: ', self.i, 'Linear:',
-                      vel_msg.linear.x, 'm/s', 'Angular:', vel_msg.angular.z, 'm/s')
-                time.sleep(0.1)
-            self.i += 1
-        else:
-            stop_msg = Twist()
-            stop_msg.linear.x = 0.0
-            stop_msg.angular.z = 0.0
-            self.vel_publisher_.publish(stop_msg)
-            print('Stopping turtlebot: ',  'Linear:', stop_msg.linear.x,
-                  'm/s', 'Angular:', stop_msg.angular.z, 'm/s')
-            self.timer.cancel()
-            exit()
-        return
 
 
 def main():
-    rclpy.init(args=None)
     astar = A_star()
-    velo = astar.a_star()
-    move_turtlebot = ROS_move(velo)
-    rclpy.spin(move_turtlebot)
-    move_turtlebot.destroy_node()
-    rclpy.shutdown()
+    astar.a_star()
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except ROSInterruptException:
-        pass
+    main()
