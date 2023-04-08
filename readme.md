@@ -122,16 +122,14 @@ ros2 launch a_star_tb3 empty_world.launch.py goal_x:=5 goal_y:=0 start_x:=0 star
 
 ## Output
 
-* Visualization Video link 
+Visualization Video link 
 
-````
 https://drive.google.com/file/d/1zll9keBU-kjOqwKYhA4M8OywR19TG_tA/view?usp=share_link
-````
 
-* Gazebo Video Link 
-````
+Gazebo Video Link 
+
 https://drive.google.com/file/d/1zMZkRd9BUZkixb4Scdb6FKqUckAuu_gh/view?usp=share_link
-````
+
 
 
 
