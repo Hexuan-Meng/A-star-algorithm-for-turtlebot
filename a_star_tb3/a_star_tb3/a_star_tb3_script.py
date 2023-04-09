@@ -75,7 +75,7 @@ class A_star:
                                self.coords_pygame((400, 110), 200), 50)
             for l in range(len(explored)):
                 pygame.draw.lines(screen, "white", False,
-                                  path[explored[l]][1], width=1)
+                                  path[[l]][1], width=1)
                 video.update(pygame.surfarray.pixels3d(
                     screen).swapaxes(0, 1), inverted=False)
                 pygame.display.flip()
