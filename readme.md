@@ -1,10 +1,6 @@
 ## Implementation and Visualizattion of A-star Algorithm using Turtlebot 3
 <br />
 
-## Team Members
-* Sandeep Thalapanane - - sandeept - 119402535
-* Sandip Sharan Senthil Kumar - Sandip26 - 119340196
-
 ## Environment used - VS code
 
 <br />
