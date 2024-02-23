@@ -1,8 +1,3 @@
-# ENPM661 - Planning for Autonomous Robots
-
-## Project 3 - Phase 2 
-<br />
-
 ## Implementation and Visualizattion of A-star Algorithm using Turtlebot 3
 <br />
 
